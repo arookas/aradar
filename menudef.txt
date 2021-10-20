@@ -1,0 +1,49 @@
+
+//
+// This file is part of ARADAR.
+// See README and LICENSE for details.
+//
+
+// -------------------------------------------------------------------------- //
+
+OptionValue "ARadarAnchor" {
+
+  0, "None"
+  1, "Top right"
+  2, "Top left"
+  3, "Bottom right"
+  4, "Bottom left"
+
+}
+
+OptionValue "ARadarOrder" {
+
+  0, "Under HUD"
+  1, "Over HUD"
+
+}
+
+AddOptionMenu "HUDOptions" after "ScoreboardOptions" {
+  Submenu "Radar Options", "ARadarOptions"
+}
+
+OptionMenu "ARadarOptions" {
+
+  Title "Radar Options"
+  Option "Display position", "aradar_anchor", "ARadarAnchor"
+  Option "Enable in deathmatch", "aradar_deathmatch", "YesNo"
+  Option "Draw under HUD", "aradar_order", "NoYes", "aradar_anchor"
+  StaticText ""
+  Slider "Radar scale", "aradar_scale", 0.25, 2.0, 0.05, 2, "aradar_anchor"
+  Slider "Radar X offset", "aradar_offset_x", -200, 200, 5, 0, "aradar_anchor"
+  Slider "Radar Y offset", "aradar_offset_y", -200, 200, 5, 0, "aradar_anchor"
+  StaticText ""
+  Option "Show blip altitude", "aradar_altitude", "NoYes", "aradar_anchor"
+  Option "Show respawned items", "aradar_respawn", "NoYes", "aradar_anchor"
+  StaticText ""
+  Slider "Alert volume", "aradar_volume", 0.0, 1.0, 0.05, 2, "aradar_anchor"
+
+}
+
+// -------------------------------------------------------------------------- //
+

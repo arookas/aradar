@@ -1,0 +1,15 @@
+
+//
+// This file is part of ARADAR.
+// See README and LICENSE for details.
+//
+
+// -------------------------------------------------------------------------- //
+
+arookas/radar/alert "sounds/arookas/radar/alert.flac"
+
+$pitchshift  arookas/radar/alert 0
+$attenuation arookas/radar/alert 0.0
+$volume      arookas/radar/alert 0.35
+
+// -------------------------------------------------------------------------- //

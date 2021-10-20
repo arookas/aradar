@@ -1,0 +1,812 @@
+
+//
+// This file is part of ARADAR.
+// See README and LICENSE for details.
+//
+
+// -------------------------------------------------------------------------- //
+
+struct ARadarDrawData {
+
+  Actor camera;
+  double frac_tic;
+  double timer;
+
+  vector3 origin;
+  double angle;
+  double sine;
+  double cosine;
+  double fov;
+
+  int radar_offset_x;
+  int radar_offset_y;
+  double radar_size;
+  double radar_radius;
+  double scan_radius;
+  double clip_radius;
+  double limit_z;
+  double blip_size;
+  double blip_bias;
+  double pip_size;
+  double blot_size;
+  double map_scale_x;
+  double map_scale_y;
+  double map_scale_z;
+
+  vector2 center;
+
+  vector3 CalcWorldPos(Actor mo) const {
+    vector3 pos = (0, 0, 0);
+
+    if (mo != null) {
+      pos = (mo.Prev + self.frac_tic * (mo.Pos - mo.Prev));
+    }
+
+    return pos;
+  }
+
+  vector3 CalcRadarPos(vector3 pos) const {
+    vector3 diff = Level.Vec3Diff(self.origin, pos);
+
+    diff.X *=  self.map_scale_x;
+    diff.Y *= -self.map_scale_y;
+    diff.Z *=  self.map_scale_z;
+
+    double x = (diff.X * self.cosine - diff.Y *   self.sine);
+    double y = (diff.X *   self.sine + diff.Y * self.cosine);
+
+    return (x, y, diff.Z);
+  }
+
+  bool ClampRadarPos(
+    in out double x,
+    in out double y,
+    in out double z
+  ) const {
+    if (z > self.limit_z) {
+      z = self.limit_z;
+    } else if (z < -self.limit_z) {
+      z = -self.limit_z;
+    }
+
+    vector2 unit  = (x, y);
+    double length = unit.Length();
+
+    if (length < self.radar_radius) {
+      return false;
+    }
+
+    unit /= length;
+    x     = (unit.X * self.radar_radius);
+    y     = (unit.Y * self.radar_radius);
+
+    return true;
+  }
+
+}
+
+// -------------------------------------------------------------------------- //
+
+class ARadarAnm {
+
+  private Array<double> mFrame;
+  private Array<double> mKey;
+
+  uint size() const { return mFrame.Size(); }
+
+  void clear() {
+    mFrame.Clear();
+    mKey.Clear();
+  }
+
+  void reserve(uint amt) {
+    mFrame.Reserve(amt);
+    mKey.Reserve(amt);
+  }
+
+  void addKeyLinear(double at, double key) {
+    uint index = 0;
+
+    while (index < mFrame.Size()) {
+      if (mFrame[index] > at) {
+        break;
+      }
+
+      ++index;
+    }
+
+    mFrame.Insert(index, at);
+    mKey.Insert(index, key);
+  }
+
+  static double mix(double a, double b, double t) {
+    return (a * (1.0 - t) + b * t);
+  }
+
+  double eval(double at) const {
+    uint count = mFrame.Size();
+
+    if (count == 0) {
+      return 0.0;
+    }
+
+    uint last = (count - 1);
+
+    if (at < mFrame[0]) {
+      return mKey[0];
+    } else if (at >= mFrame[last]) {
+      return mKey[last];
+    }
+
+    uint frame = 0;
+
+    while (frame < last) {
+      if (mFrame[frame + 1] > at) {
+        break;
+      }
+
+      ++frame;
+    }
+
+    double s = (mFrame[frame + 1] - mFrame[frame]);
+    double t = 0.0;
+
+    if (s != 0.0) {
+      t = ((at - mFrame[frame]) / s);
+    }
+
+    return mix(mKey[frame], mKey[frame + 1], t);
+  }
+
+}
+
+// -------------------------------------------------------------------------- //
+
+struct ARadarLine {
+
+  vector2 a;
+  vector2 b;
+
+  vector2 ab() const {
+    return (self.b - self.a);
+  }
+
+  double length() const {
+    return (self.b - self.a).Length();
+  }
+
+  vector2 normal() const {
+    return (self.b - self.a).Unit();
+  }
+
+  double t(vector2 pt) const {
+    vector2 ab = self.ab();
+    vector2 ac = (pt - self.a);
+    return ((ab dot ac) / (ab dot ab));
+  }
+
+  vector2 eval(double t) const {
+    return (self.a + (self.b - self.a) * t);
+  }
+
+  bool clip(double r) {
+    vector2 ab = self.ab();
+    double sqr_mag = (ab dot ab);
+
+    double b = (2 * (ab dot self.a));
+    double c = ((self.a dot self.a) - r * r);
+
+    double determ = (b * b - 4 * sqr_mag * c);
+
+    if (determ <= 0) {
+      return false;
+    }
+
+    vector2 p0, p1;
+    double bias = sqrt(determ);
+
+    p0 = self.eval(Clamp01((-b - bias) / (2 * sqr_mag)));
+    p1 = self.eval(Clamp01((-b + bias) / (2 * sqr_mag)));
+
+    self.a = p0;
+    self.b = p1;
+
+    return true;
+  }
+
+  static double Clamp01(double x) {
+    if (x < 0) {
+      return 0;
+    } else if (x > 1) {
+      return 1;
+    } else {
+      return x;
+    }
+  }
+
+}
+
+// -------------------------------------------------------------------------- //
+
+struct ARadarRenderer {
+
+  enum EAnchor {
+
+    ANCHOR_OFF,
+    ANCHOR_TP_RT, // top-right
+    ANCHOR_TP_LT, // top-left
+    ANCHOR_BT_RT, // bottom-right
+    ANCHOR_BT_LT  // bottom-left
+
+  }
+
+  enum EOrder {
+
+    ORDER_UNDERLAY,
+    ORDER_OVERLAY
+
+  }
+
+  enum ETexID {
+
+    TEX_RADAR_BACK,
+    TEX_RADAR_SCAN,
+    TEX_RADAR_FOV,
+    TEX_RADAR_MARK,
+    TEX_RADAR_RIM,
+
+    TEX_BLIP_NEAR,
+    TEX_BLIP_FAR,
+
+    TEX_PIP_BASE,
+    TEX_PIP_TEXT,
+
+    TEX_BLOT,
+
+    TEX_NUM
+
+  }
+
+  static const Color BLIP_COLORS[] = {
+    Color(255, 255, 255, 255), // white
+    Color(255,   2, 252,   5), // green
+    Color(255, 245, 247,  26), // yellow
+    Color(255,   0, 193, 247), // blue
+    Color(255, 250,   7,   3)  // red
+  };
+
+  static const Color BLOT_COLORS[] = {
+    Color(255, 255,  64,  72), // red
+    Color(255,   0, 255, 255), // blue
+    Color(255, 245, 247,  26)  // yellow
+  };
+
+  private TextureID mTex[TEX_NUM];
+  private int mPlayerName[MAXPLAYERS];
+  private int mTextSrcWidth;
+  private transient CVar mScreenBlocks;
+  private transient CVar mRadarAnchor;
+  private transient CVar mRadarOrder;
+  private transient CVar mRadarAltitude;
+  private transient CVar mRadarRespawn;
+  private transient CVar mRadarScale;
+  private transient CVar mRadarOffsetX;
+  private transient CVar mRadarOffsetY;
+  private ARadarAnm mAnmScanScale;
+  private ARadarAnm mAnmScanFade;
+
+  private vector3 mBoxVertex[4];
+
+  bool InitCVar() {
+    mScreenBlocks  = CVar.GetCVar('screenblocks');
+    mRadarAnchor   = CVar.GetCVar('aradar_anchor');
+    mRadarOrder    = CVar.GetCVar('aradar_order');
+    mRadarAltitude = CVar.GetCVar('aradar_altitude');
+    mRadarRespawn  = CVar.GetCVar('aradar_respawn');
+    mRadarOffsetX  = CVar.GetCVar('aradar_offset_x');
+    mRadarOffsetY  = CVar.GetCVar('aradar_offset_y');
+    mRadarScale    = CVar.GetCVar('aradar_scale');
+
+    for (uint i = 0; i < MAXPLAYERS; ++i) {
+      mPlayerName[i] = -1;
+    }
+
+    return true;
+  }
+
+  bool InitRes() {
+    static const string NAMES[] = {
+      "ARADBACK", // TEX_RADAR_BACK
+      "ARADSCAN", // TEX_RADAR_SCAN
+      "ARADFOV",  // TEX_RADAR_FOV
+      "ARADMARK", // TEX_RADAR_MARK
+      "ARADRIM",  // TEX_RADAR_RIM
+      "ARADBLIP", // TEX_BLIP_NEAR
+      "ARADTIP",  // TEX_BLIP_FAR
+      "ARADPIPB", // TEX_PIP_BASE
+      "ARADPIPT", // TEX_PIP_TEXT
+      "ARADBLOT"  // TEX_BLOT
+    };
+
+    for (int i = 0; i < TEX_NUM; ++i) {
+      mTex[i] = TexMan.CheckForTexture(NAMES[i], TexMan.Type_Any);
+
+      if (!mTex[i].isValid()) {
+        return false;
+      }
+    }
+
+    int width, height;
+
+    [width, height] = TexMan.GetSize(mTex[TEX_PIP_TEXT]);
+    mTextSrcWidth = (width / 26);
+
+    mAnmScanScale = new('ARadarAnm');
+
+    if (mAnmScanScale != null) {
+      mAnmScanScale.addKeyLinear(0.0, 0.0);
+      mAnmScanScale.addKeyLinear(1.0, 0.3);
+      mAnmScanScale.addKeyLinear(2.0, 1.0);
+    }
+
+    mAnmScanFade = new('ARadarAnm');
+
+    if (mAnmScanFade != null) {
+      mAnmScanFade.addKeyLinear(0.0, 0.00);
+      mAnmScanFade.addKeyLinear(1.0, 0.00);
+      mAnmScanFade.addKeyLinear(1.5, 0.15);
+      mAnmScanFade.addKeyLinear(2.0, 0.00);
+    }
+
+    return true;
+  }
+
+  bool InitBox() {
+    vector2 box_min = Level.Vertexes[0].p;
+    vector2 box_max = box_min;
+
+    for (uint i = 0; i < Level.Vertexes.Size(); ++i) {
+      vector2 v = Level.Vertexes[i].p;
+
+      if (v.X < box_min.X) {
+        box_min.X = v.X;
+      }
+
+      if (v.Y < box_min.Y) {
+        box_min.Y = v.Y;
+      }
+
+      if (v.X > box_max.X) {
+        box_max.X = v.X;
+      }
+
+      if (v.Y > box_max.Y) {
+        box_max.Y = v.Y;
+      }
+    }
+
+    mBoxVertex[0] = (box_min.X, box_min.Y, 0);
+    mBoxVertex[1] = (box_min.X, box_max.Y, 0);
+    mBoxVertex[2] = (box_max.X, box_max.Y, 0);
+    mBoxVertex[3] = (box_max.X, box_min.Y, 0);
+
+    return true;
+  }
+
+  clearscope void Tick() {
+    for (uint i = 0; i < MAXPLAYERS; ++i) {
+      if (!playeringame[i]) {
+        mPlayerName[i] = -1;
+        continue;
+      }
+
+      int cell = -1;
+      string name = players[i].GetUserName();
+
+      if (name.CodePointCount() > 0) {
+        int code, next;
+
+        [code, next] = name.GetNextCodePoint(0);
+        code = string.CharUpper(code);
+        cell = (code - 65);
+      }
+
+      if (0 <= cell && cell < 26) {
+        mPlayerName[i] = cell;
+      } else {
+        mPlayerName[i] = -1;
+      }
+    }
+  }
+
+  ui void RenderUnderlay(
+    RenderEvent e,
+    in ARadarData radar
+  ) const {
+    int order = ORDER_UNDERLAY;
+
+    if (mRadarOrder != null) {
+      order = mRadarOrder.GetInt();
+    }
+
+    if (order == ORDER_UNDERLAY) {
+      Render(e, radar);
+    }
+  }
+
+  ui void RenderOverlay(
+    RenderEvent e,
+    in ARadarData radar
+  ) const {
+    int order = ORDER_UNDERLAY;
+
+    if (mRadarOrder != null) {
+      order = mRadarOrder.GetInt();
+    }
+
+    if (order == ORDER_OVERLAY) {
+      Render(e, radar);
+    }
+  }
+
+  ui void Render(
+    RenderEvent e,
+    in ARadarData radar
+  ) const {
+    int anchor = 0;
+
+    if (mRadarAnchor != null) {
+      anchor = mRadarAnchor.GetInt();
+    }
+
+    if (anchor <= ANCHOR_OFF || anchor > ANCHOR_BT_LT) {
+      return;
+    }
+
+    if (mScreenBlocks != null && mScreenBlocks.GetInt() > 11) {
+      return;
+    }
+
+    ARadarDrawData draw;
+
+    draw.camera   = e.Camera;
+    draw.frac_tic = e.FracTic;
+    draw.timer    = ((double(gametic) + e.FracTic) / double(GameTicRate));
+
+    // use actor Z and not the view/eye Z
+    draw.origin   = draw.CalcWorldPos(draw.camera);
+    draw.angle    = e.ViewAngle;
+    draw.sine     = sin(draw.angle - 90);
+    draw.cosine   = cos(draw.angle - 90);
+    draw.fov      = (players[consoleplayer].FOV / 2);
+
+    draw.radar_offset_x = 0;
+    draw.radar_offset_y = 0;
+    draw.radar_size     = 280;
+    draw.radar_radius   = 118;
+    draw.scan_radius    = 102;
+    draw.clip_radius    = 102;
+    draw.limit_z        = 100;
+    draw.blip_size      = 16;
+    draw.pip_size       = 20;
+    draw.blot_size      = 48;
+    draw.map_scale_x    = 0.18;
+    draw.map_scale_y    = 0.18;
+    draw.map_scale_z    = 0.18;
+
+    if (mRadarAltitude != null && mRadarAltitude.GetBool()) {
+      draw.map_scale_z = 0.0;
+    }
+
+    if (mRadarOffsetX != null) {
+      draw.radar_offset_x = mRadarOffsetX.GetInt();
+    }
+
+    if (mRadarOffsetY != null) {
+      draw.radar_offset_y = mRadarOffsetY.GetInt();
+    }
+
+    if (mRadarScale != null) {
+      double scale = mRadarScale.GetFloat();
+
+      draw.radar_size   *= scale;
+      draw.radar_radius *= scale;
+      draw.scan_radius  *= scale;
+      draw.clip_radius  *= scale;
+      draw.limit_z      *= scale;
+      draw.blip_size    *= scale;
+      draw.pip_size     *= scale;
+      draw.blot_size    *= scale;
+      draw.map_scale_x  *= scale;
+      draw.map_scale_y  *= scale;
+      draw.map_scale_z  *= scale;
+    }
+
+    if (draw.radar_size <= 0) {
+      return;
+    }
+
+    draw.center.X = (draw.radar_size / 2 + draw.radar_offset_x);
+    draw.center.Y = (draw.radar_size / 2 + draw.radar_offset_y);
+
+    switch (anchor) {
+      case ANCHOR_TP_RT:
+      case ANCHOR_BT_RT: {
+        draw.center.X = (Screen.GetWidth() - draw.center.X);
+        break;
+      }
+    }
+
+    switch (anchor) {
+      case ANCHOR_BT_LT:
+      case ANCHOR_BT_RT: {
+        int height = Screen.GetHeight();
+
+        if (mScreenBlocks != null && mScreenBlocks.GetInt() < 11) {
+          height = StatusBar.GetTopOfStatusBar();
+        }
+
+        draw.center.Y = (height - draw.center.Y);
+        break;
+      }
+    }
+
+    RenderRadar(draw);
+    RenderBlips(draw, radar);
+    RenderPips(draw, radar);
+    RenderBox(draw);
+    RenderBlots(draw, radar);
+  }
+
+  private ui void RenderRadar(
+    in ARadarDrawData draw
+  ) const {
+    Screen.DrawTexture(
+      mTex[TEX_RADAR_BACK], false,
+      draw.center.X, draw.center.Y,
+
+      DTA_CenterOffset, true,
+      DTA_DestHeightF,  draw.radar_size,
+      DTA_DestWidthF,   draw.radar_size
+    );
+
+    double time = (draw.timer % 2.0);
+    double scan_size = mAnmScanScale.eval(time);
+    double scan_fade = mAnmScanFade.eval(time);
+
+    Screen.DrawTexture(
+      mTex[TEX_RADAR_SCAN], false,
+      draw.center.X, draw.center.Y,
+  
+      DTA_Alpha,        scan_fade,
+      DTA_CenterOffset, true,
+      DTA_DestHeightF,  (draw.scan_radius * 2.0 * scan_size),
+      DTA_DestWidthF,   (draw.scan_radius * 2.0 * scan_size)
+    );
+
+    Screen.DrawTexture(
+      mTex[TEX_RADAR_FOV], false,
+      draw.center.X, draw.center.Y,
+  
+      DTA_CenterOffset, true,
+      DTA_ClipLeft,     int(draw.center.X),
+      DTA_DestHeightF,  draw.radar_size,
+      DTA_DestWidthF,   draw.radar_size,
+      DTA_Rotate,       -draw.fov
+    );
+
+    Screen.DrawTexture(
+      mTex[TEX_RADAR_FOV], false,
+      draw.center.X, draw.center.Y,
+
+      DTA_CenterOffset, true,
+      DTA_ClipRight,    int(draw.center.X),
+      DTA_DestHeightF,  draw.radar_size,
+      DTA_DestWidthF,   draw.radar_size,
+      DTA_FlipX,        true,
+      DTA_Rotate,       draw.fov
+    );
+
+    Screen.DrawTexture(
+      mTex[TEX_RADAR_MARK], false,
+      draw.center.X, draw.center.Y,
+
+      DTA_CenterOffset, true,
+      DTA_DestHeightF,  draw.radar_size,
+      DTA_DestWidthF,   draw.radar_size
+    );
+
+    Screen.DrawTexture(
+      mTex[TEX_RADAR_RIM], false,
+      draw.center.X, draw.center.Y,
+
+      DTA_CenterOffset, true,
+      DTA_DestHeightF,  draw.radar_size,
+      DTA_DestWidthF,   draw.radar_size
+    );
+  }
+
+  private ui void RenderBlips(
+    in ARadarDrawData draw,
+    in ARadarData radar
+  ) const {
+    bool hide_respawn = false;
+
+    if (mRadarRespawn != null) {
+      hide_respawn = mRadarRespawn.GetBool();
+    }
+
+    for (uint i = 0; i < radar.blips.Size(); ++i) {
+      if ((radar.blips[i].flags & ARADAR_BLIPF_VISIBLE) == 0) {
+        continue;
+      }
+
+      if ((radar.blips[i].flags & ARADAR_BLIPF_RESPAWNED) != 0) {
+        if (hide_respawn) {
+          continue;
+        }
+      }
+
+      vector3 pos = draw.CalcRadarPos(
+        draw.CalcWorldPos(radar.blips[i].mo)
+      );
+
+      int blip_tex      = TEX_BLIP_NEAR;
+      double blip_angle = 0;
+
+      if (draw.ClampRadarPos(pos.X, pos.Y, pos.Z)) {
+        blip_tex   = TEX_BLIP_FAR;
+        blip_angle = -(VectorAngle(pos.X, pos.Y) + 90);
+      }
+
+      ARadarBlipType blip_type = radar.blips[i].type;
+      Color blip_color         = BLIP_COLORS[blip_type];
+
+      Screen.DrawTexture(
+        mTex[blip_tex], false,
+        (draw.center.X + pos.X),
+        (draw.center.Y + pos.Y - pos.Z),
+
+        DTA_CenterOffset, true,
+        DTA_Color,        int(blip_color),
+        DTA_DestHeightF,  draw.blip_size,
+        DTA_DestWidthF,   draw.blip_size,
+        DTA_Rotate,       blip_angle
+      );
+
+      if (abs(pos.Z) > 1) {
+        Screen.DrawLine(
+          (draw.center.X + pos.X + 1),
+          (draw.center.Y + pos.Y),
+          (draw.center.X + pos.X + 1),
+          (draw.center.Y + pos.Y - pos.Z),
+          blip_color
+        );
+      }
+    }
+  }
+
+  private ui void RenderPips(
+    in ARadarDrawData draw,
+    in ARadarData radar
+  ) const {
+    for (uint i = 0; i < MAXPLAYERS; ++i) {
+      if (i == consoleplayer || !playeringame[i]) {
+        continue;
+      }
+
+      PlayerPawn mo = players[i].mo;
+
+      if (mo == null || mo.Health <= 0) {
+        continue;
+      }
+
+      vector3 pos = draw.CalcRadarPos(draw.CalcWorldPos(mo));
+      draw.ClampRadarPos(pos.X, pos.Y, pos.Z);
+
+      Color color = (players[i].GetColor() | 0xFF000000);
+
+      Screen.DrawTexture(
+        mTex[TEX_PIP_BASE], false,
+        (draw.center.X + pos.X),
+        (draw.center.Y + pos.Y - pos.Z),
+
+        DTA_CenterOffset, true,
+        DTA_Color,        int(color),
+        DTA_DestHeightF,  draw.pip_size,
+        DTA_DestWidthF,   draw.pip_size
+      );
+
+      if (abs(pos.Z) > 1) {
+        Screen.DrawLine(
+          (draw.center.X + pos.X + 1),
+          (draw.center.Y + pos.Y),
+          (draw.center.X + pos.X + 1),
+          (draw.center.Y + pos.Y - pos.Z),
+          color
+        );
+      }
+
+      int cell = -1;
+      string name = players[i].GetUserName();
+
+      if (name.CodePointCount() > 0) {
+        int code, next;
+
+        [code, next] = name.GetNextCodePoint(0);
+        code = string.CharUpper(code);
+
+        if (65 <= code && code <= 90) {
+          cell = (code - 65);
+        }
+      }
+
+      if (0 <= cell && cell < 26) {
+        Screen.DrawTexture(
+          mTex[TEX_PIP_TEXT], false,
+          (draw.center.X + pos.X),
+          (draw.center.Y + pos.Y - pos.Z),
+
+          DTA_CenterOffset, true,
+          DTA_DestHeightF,  draw.pip_size,
+          DTA_DestWidthF,   draw.pip_size,
+          DTA_SrcWidth,     double(mTextSrcWidth),
+          DTA_SrcX,         double(mTextSrcWidth * cell)
+        );
+      }
+    }
+  }
+
+  private ui void RenderBox(
+    in ARadarDrawData draw
+  ) const {
+    ARadarLine line;
+    vector3 p0, p1;
+
+    for (uint i = 0; i < 4; ++i) {
+      p0 = draw.CalcRadarPos(mBoxVertex[i]);
+      p1 = draw.CalcRadarPos(mBoxVertex[(i + 1) % 4]);
+
+      line.a = p0.Xy;
+      line.b = p1.Xy;
+
+      if (!line.clip(draw.clip_radius)) {
+        continue;
+      }
+
+      Screen.DrawLine(
+        int(draw.center.X + line.a.X), int(draw.center.Y + line.a.Y),
+        int(draw.center.X + line.b.X), int(draw.center.Y + line.b.Y),
+        0xFFFF0000
+      );
+    }
+  }
+
+  private ui void RenderBlots(
+    in ARadarDrawData draw,
+    in ARadarData radar
+  ) const {
+    for (uint i = 0; i < radar.blots.Size(); ++i) {
+      vector3 pos = draw.CalcRadarPos(radar.blots[i].pos);
+
+      draw.ClampRadarPos(pos.X, pos.Y, pos.Z);
+
+      ARadarBlotType blot_type = radar.blots[i].type;
+      Color blot_color         = BLOT_COLORS[blot_type];
+
+      Screen.DrawTexture(
+        mTex[TEX_BLOT], false,
+        (draw.center.X + pos.X),
+        (draw.center.Y + pos.Y - pos.Z),
+
+        DTA_CenterOffset, true,
+        DTA_Color,        int(blot_color),
+        DTA_DestHeightF,  draw.blot_size,
+        DTA_DestWidthF,   draw.blot_size
+      );
+    }
+  }
+
+}
+
+// -------------------------------------------------------------------------- //

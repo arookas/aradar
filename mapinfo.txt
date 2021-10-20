@@ -1,0 +1,15 @@
+
+//
+// This file is part of ARADAR.
+// See README and LICENSE for details.
+//
+
+// -------------------------------------------------------------------------- //
+
+gameinfo {
+
+  AddEventHandlers = "ARadarManager"
+
+}
+
+// -------------------------------------------------------------------------- //

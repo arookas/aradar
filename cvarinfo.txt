@@ -1,0 +1,19 @@
+
+//
+// This file is part of ARADAR.
+// See README and LICENSE for details.
+//
+
+// -------------------------------------------------------------------------- //
+
+nosave int        aradar_anchor     = 1;
+nosave int        aradar_order      = 0;
+nosave int        aradar_offset_x   = 30;
+nosave int        aradar_offset_y   = 30;
+nosave float      aradar_scale      = 0.70;
+nosave bool       aradar_altitude   = false;
+nosave bool       aradar_respawn    = false;
+nosave float      aradar_volume     = 1.0;
+server cheat bool aradar_deathmatch = false;
+
+// -------------------------------------------------------------------------- //

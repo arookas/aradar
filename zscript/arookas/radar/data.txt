@@ -1,0 +1,270 @@
+
+//
+// This file is part of ARADAR.
+// See README and LICENSE for details.
+//
+
+// -------------------------------------------------------------------------- //
+
+enum ARadarBlipType {
+
+  // these are in order drawn
+  ARADAR_BLIP_WHITE = 0,
+  ARADAR_BLIP_GREEN,
+  ARADAR_BLIP_YELLOW,
+  ARADAR_BLIP_BLUE,
+  ARADAR_BLIP_RED,
+
+  ARADAR_NUM_BLIPS
+
+}
+
+enum ARadarBlipFlag {
+
+  ARADAR_BLIPF_VISIBLE   = 1,
+  ARADAR_BLIPF_RESPAWNED = 2
+
+}
+
+class ARadarBlip {
+
+  Actor mo;
+  ARadarBlipType type;
+  uint flags;
+
+  static ARadarBlip Create(Actor mo) {
+    ARadarBlipType type = DeduceType(mo);
+
+    if (type < 0) {
+      return null;
+    }
+
+    ARadarBlip blip = new('ARadarBlip');
+
+    if (blip != null) {
+      blip.mo    = mo;
+      blip.type  = type;
+      blip.flags = 0;
+    }
+
+    return blip;
+  }
+
+  static ARadarBlipType DeduceType(Actor mo) {
+    if (mo != null && !(mo is 'PlayerPawn')) {
+      if ((mo is 'Powerup') || (mo is 'Key')) {
+        return ARADAR_BLIP_YELLOW;
+      }
+
+      if ((mo is 'Inventory') || mo.bCOUNTITEM) {
+        return ARADAR_BLIP_GREEN;
+      }
+
+      if (mo.bFRIENDLY) {
+        if (mo.bSHOOTABLE) {
+          return ARADAR_BLIP_BLUE;
+        }
+
+        return ARADAR_BLIP_WHITE;
+      }
+
+      if (mo.bISMONSTER && mo.bCOUNTKILL) {
+        return ARADAR_BLIP_RED;
+      }
+
+      if (mo.bUSESPECIAL || mo.bBUMPSPECIAL) {
+        return ARADAR_BLIP_YELLOW;
+      }
+
+      if (mo.bSHOOTABLE) {
+        return ARADAR_BLIP_WHITE;
+      }
+    }
+
+    return -1;
+  }
+
+}
+
+// -------------------------------------------------------------------------- //
+
+enum ARadarBlotType {
+
+  ARADAR_BLOT_RED,
+  ARADAR_BLOT_BLUE,
+  ARADAR_BLOT_YELLOW,
+
+  ARADAR_NUM_BLOTS
+
+}
+
+class ARadarBlot {
+
+  vector3 pos;
+  ARadarBlipType type;
+  int life;
+
+  static ARadarBlot Create(vector3 pos, ARadarBlotType type, double secs) {
+    if (type < 0 || type >= ARADAR_NUM_BLOTS || secs <= 0) {
+      return null;
+    }
+
+    ARadarBlot blot = new('ARadarBlot');
+
+    if (blot != null) {
+      blot.pos  = pos;
+      blot.type = type;
+      blot.life = (GameTicRate * secs);
+    }
+
+    return blot;
+  }
+
+}
+
+// -------------------------------------------------------------------------- //
+
+struct ARadarData {
+
+  Array<ARadarBlip> blips;
+  uint counts[ARADAR_NUM_BLIPS];
+  Array<ARadarBlot> blots;
+
+  void Init() {
+    self.blips.Clear();
+
+    for (int i = 0; i < ARADAR_NUM_BLIPS; ++i) {
+      self.counts[i] = 0;
+    }
+  }
+
+  play int Tick() {
+    int notices = 0;
+
+    for (uint i = 0; i < self.blips.Size(); ++i) {
+      if ((self.blips[i].flags & ARADAR_BLIPF_VISIBLE) != 0) {
+        switch (self.blips[i].type) {
+          case ARADAR_BLIP_GREEN:
+          case ARADAR_BLIP_YELLOW: {
+            break;
+          }
+          default: {
+            continue;
+          }
+        }
+      }
+
+      Actor mo = self.blips[i].mo;
+
+      if (mo == null) {
+        continue;
+      }
+
+      switch (self.blips[i].type) {
+        case ARADAR_BLIP_RED: {
+          if (mo.target != null) {
+            ++notices;
+            self.blips[i].flags |= ARADAR_BLIPF_VISIBLE;
+            continue;
+          }
+
+          break;
+        }
+        case ARADAR_BLIP_GREEN:
+        case ARADAR_BLIP_YELLOW: {
+          let item = Inventory(mo);
+
+          if (item != null) {
+            if (item.Owner != null) {
+              self.blips[i].flags &= ~ARADAR_BLIPF_VISIBLE;
+              continue;
+            }
+
+            if (!item.bSPECIAL) {
+              self.blips[i].flags &= ~ARADAR_BLIPF_VISIBLE;
+              self.blips[i].flags |=  ARADAR_BLIPF_RESPAWNED;
+              continue;
+            }
+          }
+
+          break;
+        }
+      }
+
+      // CheckIfSeen returns FALSE if seen for some reason
+      if (!mo.CheckIfSeen()) {
+        if (self.blips[i].type == ARADAR_BLIP_RED) {
+          ++notices;
+        }
+
+        self.blips[i].flags |= ARADAR_BLIPF_VISIBLE;
+        continue;
+      }
+    }
+
+    for (uint i = 0; i < self.blots.Size();) {
+      if (self.blots[i].life-- > 0) {
+        ++i;
+        continue;
+      }
+
+      self.blots.Delete(i);
+    }
+
+    return notices;
+  }
+
+  uint GetIndex(ARadarBlipType type) const {
+    uint index = 0;
+
+    for (int i = 0; i < type; ++i) {
+      index += self.counts[i];
+    }
+
+    return index;
+  }
+
+  bool AddBlip(Actor mo) {
+    ARadarBlip blip = ARadarBlip.Create(mo);
+
+    if (blip == null) {
+      return false;
+    }
+
+    uint index = GetIndex(blip.type);
+    self.blips.Insert(index, blip);
+    ++self.counts[blip.type];
+
+    return true;
+  }
+
+  bool RemoveBlip(Actor mo) {
+    for (uint i = 0; i < self.blips.Size(); ++i) {
+      if (self.blips[i].mo != mo) {
+        continue;
+      }
+
+      --self.counts[self.blips[i].type];
+      self.blips.Delete(i);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  bool AddBlot(vector3 pos, ARadarBlotType type, double secs) {
+    ARadarBlot blot = ARadarBlot.Create(pos, type, secs);
+
+    if (blot == null) {
+      return false;
+    }
+
+    self.blots.Push(blot);
+
+    return true;
+  }
+
+}
+
+// -------------------------------------------------------------------------- //

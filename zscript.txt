@@ -1,0 +1,15 @@
+
+//
+// This file is part of ARADAR.
+// See README and LICENSE for details.
+//
+
+// -------------------------------------------------------------------------- //
+
+version "4.5"
+
+#include "zscript/arookas/radar/data.txt"
+#include "zscript/arookas/radar/manager.txt"
+#include "zscript/arookas/radar/renderer.txt"
+
+// -------------------------------------------------------------------------- //

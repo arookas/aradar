@@ -1,0 +1,193 @@
+
+//
+// This file is part of ARADAR.
+// See README and LICENSE for details.
+//
+
+// -------------------------------------------------------------------------- //
+
+class ARadarManager : EventHandler {
+
+  const NOTICE_BUFFER_SZ = 10;
+
+  private bool mDefunct;
+  private ARadarData mData;
+  private ARadarRenderer mRenderer;
+  private int mNoticeBuffer[NOTICE_BUFFER_SZ];
+  private int mNoticeDebounce;
+
+  private transient CVar mDeathMatch;
+
+  override void OnRegister() {
+    mDefunct = false;
+    mNoticeDebounce = 0;
+
+    for (uint i = 0; i < NOTICE_BUFFER_SZ; ++i) {
+      mNoticeBuffer[i] = 0;
+    }
+
+    if (!mRenderer.InitCVar()) {
+      mDefunct = true;
+      return;
+    }
+
+    mDeathMatch = CVar.GetCVar('aradar_deathmatch');
+  }
+
+  override void WorldLoaded(WorldEvent e) {
+    mData.Init();
+
+    if (!mRenderer.InitRes()) {
+      mDefunct = true;
+      return;
+    }
+
+    if (!mRenderer.InitBox()) {
+      mDefunct = true;
+      return;
+    }
+  }
+
+  override void WorldThingSpawned(WorldEvent e) {
+    if (mDefunct) {
+      return;
+    }
+
+    mData.AddBlip(e.Thing);
+  }
+
+  override void WorldThingRevived(WorldEvent e) {
+    if (mDefunct) {
+      return;
+    }
+
+    mData.AddBlip(e.Thing);
+  }
+
+  override void WorldThingDied(WorldEvent e) {
+    if (mDefunct) {
+      return;
+    }
+
+    mData.RemoveBlip(e.Thing);
+  }
+
+  override void WorldThingDestroyed(WorldEvent e) {
+    if (mDefunct) {
+      return;
+    }
+
+    mData.RemoveBlip(e.Thing);
+  }
+
+  override void PlayerDied(PlayerEvent e) {
+    if (mDefunct) {
+      return;
+    }
+
+    int pnum = e.PlayerNumber;
+
+    if (pnum < 0 || pnum >= MAXPLAYERS) {
+      return;
+    }
+
+    PlayerPawn mo = players[pnum].mo;
+
+    if (mo == null) {
+      return;
+    }
+
+    mData.AddBlot(mo.Pos, ARADAR_BLOT_RED, 5);
+  }
+
+  override void WorldTick() {
+    if (mDefunct) {
+      return;
+    }
+
+    mRenderer.Tick();
+
+    if (mNoticeDebounce > 0) {
+      --mNoticeDebounce;
+    }
+
+    for (uint i = (NOTICE_BUFFER_SZ - 1); i > 0; --i) {
+      mNoticeBuffer[i] = mNoticeBuffer[i - 1];
+    }
+
+    mNoticeBuffer[0] = mData.Tick();
+
+    int notices = 0;
+
+    for (uint i = 0; i < NOTICE_BUFFER_SZ; ++i) {
+      notices += mNoticeBuffer[i];
+    }
+
+    if (notices >= 8 && mNoticeDebounce <= 0) {
+      double volume = 1.0;
+
+      CVar opt = CVar.GetCVAR('aradar_volume', players[consoleplayer]);
+
+      if (opt != null) {
+        volume = opt.GetFloat();
+
+        if (volume < 0.0) {
+          volume = 0.0;
+        }
+
+        if (volume > 1.0) {
+          volume = 1.0;
+        }
+      }
+
+      S_StartSound(
+        "arookas/radar/alert", CHAN_VOICE,
+        (CHANF_MAYBE_LOCAL | CHANF_UI),
+        volume, ATTN_NONE
+      );
+
+      mNoticeDebounce = (GameTicRate * 2);
+    }
+  }
+
+  private bool CheckRender() const {
+    if (mDefunct) {
+      return false;
+    }
+
+    bool enabled = true;
+
+    if (automapactive) {
+      enabled = false;
+    }
+
+    if (deathmatch) {
+      enabled = false;
+
+      if (mDeathMatch != null && mDeathMatch.GetBool()) {
+        enabled = true;
+      }
+    }
+
+    return enabled;
+  }
+
+  override void RenderUnderlay(RenderEvent e) {
+    if (!CheckRender()) {
+      return;
+    }
+
+    mRenderer.RenderUnderlay(e, mData);
+  }
+
+  override void RenderOverlay(RenderEvent e) {
+    if (!CheckRender()) {
+      return;
+    }
+
+    mRenderer.RenderOverlay(e, mData);
+  }
+
+}
+
+// -------------------------------------------------------------------------- //

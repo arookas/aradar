@@ -14,6 +14,7 @@ enum ARadarBlipType {
   ARADAR_BLIP_YELLOW,
   ARADAR_BLIP_BLUE,
   ARADAR_BLIP_RED,
+  ARADAR_BLIP_MAGENTA,
 
   ARADAR_NUM_BLIPS
 
@@ -56,8 +57,13 @@ class ARadarBlip {
         return ARADAR_BLIP_YELLOW;
       }
 
-      if ((mo is 'Inventory') || mo.bCOUNTITEM) {
-        return ARADAR_BLIP_GREEN;
+      if (mo is 'Inventory')
+	  {
+		if (mo.bCOUNTITEM) {
+		  return ARADAR_BLIP_MAGENTA;
+		} else {
+		  return ARADAR_BLIP_GREEN;
+		}
       }
 
       if (mo.bFRIENDLY) {

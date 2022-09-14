@@ -272,7 +272,8 @@ struct ARadarRenderer {
     Color(255,   2, 252,   5), // green
     Color(255, 245, 247,  26), // yellow
     Color(255,   0, 193, 247), // blue
-    Color(255, 250,   7,   3)  // red
+    Color(255, 250,   7,   3), // red
+    Color(255, 245,   7, 247)  // magenta
   };
 
   static const Color BLOT_COLORS[] = {
@@ -287,6 +288,7 @@ struct ARadarRenderer {
   private transient CVar mScreenBlocks;
   private transient CVar mRadarAnchor;
   private transient CVar mRadarOrder;
+  private transient CVar mRadarShowType[6];
   private transient CVar mRadarAltitude;
   private transient CVar mRadarRespawn;
   private transient CVar mRadarScale;
@@ -298,14 +300,20 @@ struct ARadarRenderer {
   private vector3 mBoxVertex[4];
 
   bool InitCVar() {
-    mScreenBlocks  = CVar.GetCVar('screenblocks');
-    mRadarAnchor   = CVar.GetCVar('aradar_anchor');
-    mRadarOrder    = CVar.GetCVar('aradar_order');
-    mRadarAltitude = CVar.GetCVar('aradar_altitude');
-    mRadarRespawn  = CVar.GetCVar('aradar_respawn');
-    mRadarOffsetX  = CVar.GetCVar('aradar_offset_x');
-    mRadarOffsetY  = CVar.GetCVar('aradar_offset_y');
-    mRadarScale    = CVar.GetCVar('aradar_scale');
+    mScreenBlocks      = CVar.GetCVar('screenblocks');
+    mRadarAnchor       = CVar.GetCVar('aradar_anchor');
+    mRadarOrder        = CVar.GetCVar('aradar_order');
+	mRadarShowType[0]  = CVar.GetCVar('aradar_blip_deco');
+	mRadarShowType[1]  = CVar.GetCVar('aradar_blip_other');
+	mRadarShowType[2]  = CVar.GetCVar('aradar_blip_key');
+	mRadarShowType[3]  = CVar.GetCVar('aradar_blip_friend');
+	mRadarShowType[4]  = CVar.GetCVar('aradar_blip_monster');
+	mRadarShowType[5]  = CVar.GetCVar('aradar_blip_count');
+    mRadarAltitude     = CVar.GetCVar('aradar_altitude');
+    mRadarRespawn      = CVar.GetCVar('aradar_respawn');
+    mRadarOffsetX      = CVar.GetCVar('aradar_offset_x');
+    mRadarOffsetY      = CVar.GetCVar('aradar_offset_y');
+    mRadarScale        = CVar.GetCVar('aradar_scale');
 
     for (uint i = 0; i < MAXPLAYERS; ++i) {
       mPlayerName[i] = -1;
@@ -631,9 +639,15 @@ struct ARadarRenderer {
     in ARadarData radar
   ) const {
     bool hide_respawn = false;
+	bool draw_types[6];
 
     if (mRadarRespawn != null) {
       hide_respawn = mRadarRespawn.GetBool();
+    }
+	if (mRadarShowType.Size() > 0) {
+	  for (int i = 0; i < draw_types.Size(); i++) {
+		draw_types[i] = mRadarShowType[i].GetBool();
+	  }
     }
 
     for (uint i = 0; i < radar.blips.Size(); ++i) {
@@ -646,7 +660,11 @@ struct ARadarRenderer {
           continue;
         }
       }
-
+	  
+	  if (!draw_types[radar.blips[i].type]) {
+        continue;
+      }
+	  
       vector3 pos = draw.CalcRadarPos(
         draw.CalcWorldPos(radar.blips[i].mo)
       );

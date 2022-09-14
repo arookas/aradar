@@ -6,20 +6,34 @@
 
 // -------------------------------------------------------------------------- //
 
-nosave int        aradar_anchor       = 1;
-nosave int        aradar_order        = 0;
-nosave int        aradar_offset_x     = 30;
-nosave int        aradar_offset_y     = 30;
-nosave float      aradar_scale        = 0.70;
-nosave bool       aradar_blip_monster = true;
-nosave bool       aradar_blip_friend  = true;
-nosave bool       aradar_blip_count   = true;
-nosave bool       aradar_blip_key     = true;
-nosave bool       aradar_blip_other   = true;
-nosave bool       aradar_blip_deco    = true;
-nosave bool       aradar_altitude     = false;
-nosave bool       aradar_respawn      = false;
-nosave float      aradar_volume       = 1.0;
-server cheat bool aradar_deathmatch   = false;
+nosave int        aradar_anchor             = 1;
+nosave int        aradar_order              = 0;
+nosave int        aradar_offset_x           = 30;
+nosave int        aradar_offset_y           = 30;
+nosave float      aradar_scale              = 0.70;
+nosave float      aradar_alpha              = 1.0;
+nosave bool       aradar_blip_monster       = true;
+nosave bool       aradar_blip_friend        = true;
+nosave bool       aradar_blip_count         = true;
+nosave bool       aradar_blip_key           = true;
+nosave bool       aradar_blip_other         = true;
+nosave bool       aradar_blip_deco          = true;
+nosave color      aradar_blip_monster_color = "FA 07 03";
+nosave color      aradar_blip_friend_color  = "00 C1 F7";
+nosave color      aradar_blip_count_color   = "F5 07 F7";
+nosave color      aradar_blip_key_color     = "F5 F7 1A";
+nosave color      aradar_blip_other_color   = "02 FC 05";
+nosave color      aradar_blip_deco_color    = "FF FF FF";
+nosave bool       aradar_altitude           = false;
+nosave bool       aradar_respawn            = false;
+nosave float      aradar_volume             = 1.0;
+server cheat bool aradar_deathmatch         = false;
 
 // -------------------------------------------------------------------------- //
+
+    
+    
+    
+    
+    
+    

@@ -34,12 +34,13 @@ If a _blip_ is beyond the visible distance of the radar, it will change into a p
 
 The table below describes the various colors of _blips_:
 
-| Color  | Target | Technical |
+| Default Color  | Target | Technical |
 |-------:|:-------|-----------|
 | Red    | Living monsters | Has `ISMONSTER` and `COUNTKILL` flags. |
 | Blue   | Living allies  | Has `FRIENDLY` and `SHOOTABLE` flags. |
-| Yellow | Key&nbsp;items / interactive&nbsp;objects | Derived from `Powerup` or `Key`, or has `USEPSECIAL` or `BUMPSECIAL` flags. |
-| Green  | Regular items | Derived from `Inventory` or has `COUNTITEM` flag. |
+| Yellow | Key&nbsp;items / interactive&nbsp;objects | Derived from `Powerup` or `Key`, or has `USESPECIAL` or `BUMPSECIAL` flags. |
+| Green  | Regular items | Derived from `Inventory` and has no `COUNTITEM` flag. |
+| Magenta  | Collectible items | Derived from `Inventory` and has `COUNTITEM` flag. |
 | White  | Objects | Has either `SHOOTABLE` or `FRIENDLY` flag (but not both). |
 
 ### Pips

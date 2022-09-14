@@ -37,6 +37,7 @@ OptionMenu "ARadarOptions" {
   Slider "Radar scale", "aradar_scale", 0.25, 2.0, 0.05, 2, "aradar_anchor"
   Slider "Radar X offset", "aradar_offset_x", -200, 200, 5, 0, "aradar_anchor"
   Slider "Radar Y offset", "aradar_offset_y", -200, 200, 5, 0, "aradar_anchor"
+  Slider "Radar transparency", "aradar_alpha", 0, 1, 0.01, 2, "aradar_anchor"
   StaticText ""
   StaticText "Show blips for:"
   Option "Monsters", "aradar_blip_monster", "OnOff", "aradar_anchor"
@@ -46,10 +47,24 @@ OptionMenu "ARadarOptions" {
   Option "Other items", "aradar_blip_other", "OnOff", "aradar_anchor"
   Option "Objects", "aradar_blip_deco", "OnOff", "aradar_anchor"
   StaticText ""
+  SubMenu "Customize blip colors", "CustomizeColors"
+  StaticText ""
   Option "Show blip altitude", "aradar_altitude", "NoYes", "aradar_anchor"
   Option "Show respawned items", "aradar_respawn", "NoYes", "aradar_anchor"
   StaticText ""
   Slider "Alert volume", "aradar_volume", 0.0, 1.0, 0.05, 2, "aradar_anchor"
+
+}
+
+OptionMenu "CustomizeColors" {
+
+  StaticText "Blip colors:"
+  ColorPicker "Monsters", "aradar_blip_monster_color"
+  ColorPicker "Friendlies", "aradar_blip_friend_color"
+  ColorPicker "Collectibles", "aradar_blip_count_color"
+  ColorPicker "Keys and special items", "aradar_blip_key_color"
+  ColorPicker "Other items", "aradar_blip_other_color"
+  ColorPicker "Objects", "aradar_blip_deco_color"
 
 }
 

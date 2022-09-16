@@ -739,7 +739,7 @@ struct ARadarRenderer {
       vector3 pos = draw.CalcRadarPos(draw.CalcWorldPos(mo));
       draw.ClampRadarPos(pos.X, pos.Y, pos.Z);
 
-      Color color = players[i].GetColor();
+      Color color = (players[i].GetColor() | 0xFF000000);
 
       Screen.DrawTexture(
         mTex[TEX_PIP_BASE], false,

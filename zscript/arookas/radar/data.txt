@@ -150,6 +150,7 @@ struct ARadarData {
     for (uint i = 0; i < self.blips.Size(); ++i) {
       if ((self.blips[i].flags & ARADAR_BLIPF_VISIBLE) != 0) {
         switch (self.blips[i].type) {
+		  case ARADAR_BLIP_MAGENTA:
           case ARADAR_BLIP_GREEN:
           case ARADAR_BLIP_YELLOW: {
             break;
@@ -164,7 +165,11 @@ struct ARadarData {
 
       if (mo == null) {
         continue;
-      }
+      } else if (ARadarBlip.DeduceType(self.blips[i].mo) < 0) {
+	    self.blips.Delete(i);
+	    i--;
+		continue;
+	  }
 
       switch (self.blips[i].type) {
         case ARADAR_BLIP_RED: {
@@ -176,6 +181,7 @@ struct ARadarData {
 
           break;
         }
+		case ARADAR_BLIP_MAGENTA:
         case ARADAR_BLIP_GREEN:
         case ARADAR_BLIP_YELLOW: {
           let item = Inventory(mo);

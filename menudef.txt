@@ -43,7 +43,7 @@ OptionMenu "ARadarOptions" {
   Option "Monsters", "aradar_blip_monster", "OnOff", "aradar_anchor"
   Option "Friendlies", "aradar_blip_friend", "OnOff", "aradar_anchor"
   Option "Collectibles", "aradar_blip_count", "OnOff", "aradar_anchor"
-  Option "Keys and special items", "aradar_blip_key", "OnOff", "aradar_anchor"
+  Option "Keys, powerups and special items", "aradar_blip_key", "OnOff", "aradar_anchor"
   Option "Other items", "aradar_blip_other", "OnOff", "aradar_anchor"
   Option "Objects", "aradar_blip_deco", "OnOff", "aradar_anchor"
   StaticText ""
@@ -62,7 +62,7 @@ OptionMenu "CustomizeColors" {
   ColorPicker "Monsters", "aradar_blip_monster_color"
   ColorPicker "Friendlies", "aradar_blip_friend_color"
   ColorPicker "Collectibles", "aradar_blip_count_color"
-  ColorPicker "Keys and special items", "aradar_blip_key_color"
+  ColorPicker "Keys, powerups and special items", "aradar_blip_key_color"
   ColorPicker "Other items", "aradar_blip_other_color"
   ColorPicker "Objects", "aradar_blip_deco_color"
 

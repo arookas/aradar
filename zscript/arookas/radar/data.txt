@@ -252,18 +252,20 @@ struct ARadarData {
   }
 
   bool RemoveBlip(Actor mo) {
-    for (uint i = 0; i < self.blips.Size(); ++i) {
-	  if (!self.blips[i]) {
-        return false;
-      }
-      if (self.blips[i].mo != mo) {
-        continue;
-      }
+	if (ARadarBlip.DeduceType(e.Thing) >= 0) {
+	  for (uint i = 0; i < self.blips.Size(); ++i) {
+	    if (!self.blips[i]) {
+	      return false;
+  	    }
+        if (self.blips[i].mo != mo) {
+	      continue;
+        }
 
-      --self.counts[self.blips[i].type];
-      self.blips.Delete(i);
+        --self.counts[self.blips[i].type];
+        self.blips.Delete(i);
 
-      return true;
+        return true;
+	  }
     }
 
     return false;

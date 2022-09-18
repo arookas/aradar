@@ -68,18 +68,16 @@ class ARadarManager : EventHandler {
     if (mDefunct) {
       return;
     }
-	if (ARadarBlip.DeduceType(e.Thing) >= 0) {
-		mData.RemoveBlip(e.Thing);
-	}
+	
+    mData.RemoveBlip(e.Thing);
   }
 
   override void WorldThingDestroyed(WorldEvent e) {
     if (mDefunct) {
       return;
     }
-	if (ARadarBlip.DeduceType(e.Thing) >= 0) {
-		mData.RemoveBlip(e.Thing);
-	}
+
+    mData.RemoveBlip(e.Thing);
   }
 
   override void PlayerDied(PlayerEvent e) {

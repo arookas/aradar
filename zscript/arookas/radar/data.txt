@@ -148,6 +148,9 @@ struct ARadarData {
     int notices = 0;
 
     for (uint i = 0; i < self.blips.Size(); ++i) {
+	  if (!self.blips[i]) {
+        break;
+	  }
       if ((self.blips[i].flags & ARADAR_BLIPF_VISIBLE) != 0) {
         switch (self.blips[i].type) {
 		  case ARADAR_BLIP_MAGENTA:
@@ -163,9 +166,7 @@ struct ARadarData {
 
       Actor mo = self.blips[i].mo;
 
-      if (mo == null) {
-        continue;
-      } else if (ARadarBlip.DeduceType(self.blips[i].mo) < 0) {
+      if (mo == null || ARadarBlip.DeduceType(self.blips[i].mo) < 0) {
 	    self.blips.Delete(i);
 	    i--;
 		continue;
@@ -252,6 +253,9 @@ struct ARadarData {
 
   bool RemoveBlip(Actor mo) {
     for (uint i = 0; i < self.blips.Size(); ++i) {
+	  if (!self.blips[i]) {
+        return false;
+      }
       if (self.blips[i].mo != mo) {
         continue;
       }

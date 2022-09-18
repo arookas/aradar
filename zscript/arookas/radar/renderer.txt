@@ -667,6 +667,10 @@ struct ARadarRenderer {
     }
 
     for (uint i = 0; i < radar.blips.Size(); ++i) {
+	  if (!radar.blips[i]) {
+        break;
+	  }
+	  
       if ((radar.blips[i].flags & ARADAR_BLIPF_VISIBLE) == 0) {
         continue;
       }

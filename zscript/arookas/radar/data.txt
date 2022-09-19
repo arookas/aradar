@@ -166,9 +166,10 @@ struct ARadarData {
 
       Actor mo = self.blips[i].mo;
 
-      if (mo == null || ARadarBlip.DeduceType(self.blips[i].mo) < 0) {
+      if (ARadarBlip.DeduceType(self.blips[i].mo) < 0) {
+		--self.counts[self.blips[i].type];
 	    self.blips.Delete(i);
-	    i--;
+		--i;
 		continue;
 	  }
 
@@ -198,6 +199,15 @@ struct ARadarData {
               self.blips[i].flags |=  ARADAR_BLIPF_RESPAWNED;
               continue;
             }
+			
+			if (multiplayer && mo is 'Key') {
+              if (players[consoleplayer].mo.CountInv(mo.GetClassName()) > 0) {
+				if ((self.blips[i].flags & ARADAR_BLIPF_VISIBLE) == 1) {
+				  self.blips[i].flags &= ~ARADAR_BLIPF_VISIBLE;
+				}
+				continue;
+			  }
+			}
           }
 
           break;
@@ -252,7 +262,7 @@ struct ARadarData {
   }
 
   bool RemoveBlip(Actor mo) {
-	if (ARadarBlip.DeduceType(e.Thing) >= 0) {
+	if (ARadarBlip.DeduceType(mo) >= 0) {
 	  for (uint i = 0; i < self.blips.Size(); ++i) {
 	    if (!self.blips[i]) {
 	      return false;

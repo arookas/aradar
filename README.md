@@ -1,5 +1,5 @@
 
-# aradar v1.0
+# aradar v1.2
 
 ## Description
 
@@ -34,12 +34,13 @@ If a _blip_ is beyond the visible distance of the radar, it will change into a p
 
 The table below describes the various colors of _blips_:
 
-| Color  | Target | Technical |
+| Default Color  | Target | Technical |
 |-------:|:-------|-----------|
 | Red    | Living monsters | Has `ISMONSTER` and `COUNTKILL` flags. |
 | Blue   | Living allies  | Has `FRIENDLY` and `SHOOTABLE` flags. |
-| Yellow | Key&nbsp;items / interactive&nbsp;objects | Derived from `Powerup` or `Key`, or has `USEPSECIAL` or `BUMPSECIAL` flags. |
-| Green  | Regular items | Derived from `Inventory` or has `COUNTITEM` flag. |
+| Yellow | Key&nbsp;items / interactive&nbsp;objects | Derived from `Powerup` or `Key`, or has `USESPECIAL` or `BUMPSECIAL` flags. |
+| Green  | Regular items | Derived from `Inventory` and has no `COUNTITEM` flag. |
+| Magenta  | Collectible items | Derived from `Inventory` and has `COUNTITEM` flag. |
 | White  | Objects | Has either `SHOOTABLE` or `FRIENDLY` flag (but not both). |
 
 ### Pips
@@ -84,8 +85,11 @@ You can turn the radar on/off, change the appearance, and control specific featu
 | _Enable&nbsp;in&nbsp;deathmatch_ | Enables players to see the radar even in deathmatch. This is a host setting and cheats must be enabled to turn this on. |
 | _Draw&nbsp;under&nbsp;HUD_ | Whether the radar displays under or over existing HUD elements. |
 | _Radar&nbsp;scale_ | Global display scale of the radar and indicators. |
+| _Radar&nbsp;transparency_ | Radar's transparency (alpha channel) to tune its intrusiveness. |
 | _Radar&nbsp;X&nbsp;offset_ | Horizontal offset of the radar display, in screen pixels. Positive values move radar towards the center of the screen. |
 | _Radar&nbsp;Y&nbsp;offset_ | Vertical offset of the radar display, in screen pixels. Positive values move radar towards the center of the screen. |
+| _Blip&nbsp;types_ | Enables/disables specific radar blip types. |
+| _Blip&nbsp;colors_ | Allow the user to customize colors for each blip type. |
 | _Show&nbsp;blip&nbsp;altitude_ | Turn this off to hide [altitude indicators](#altitude). This is useful for smaller screens. |
 | _Show&nbsp;respawned&nbsp;items_ | If `sv_itemrespawn` is enabled, items are allowed to reappear on the radar after respawning. Turning this off will keep the item's _blip_ hidden after being picked up the first time. This option can help clean up the radar for larger maps with lots of items. |
 | _Alert&nbsp;volume_ | Changes the volume of the [alert sound](#alert). Set to zero to turn the feature off entirely. |

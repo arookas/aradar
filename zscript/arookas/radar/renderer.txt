@@ -267,29 +267,25 @@ struct ARadarRenderer {
 
   }
 
-  static const Color BLIP_COLORS[] = {
-    Color(255, 255, 255, 255), // white
-    Color(255,   2, 252,   5), // green
-    Color(255, 245, 247,  26), // yellow
-    Color(255,   0, 193, 247), // blue
-    Color(255, 250,   7,   3)  // red
-  };
-
   static const Color BLOT_COLORS[] = {
     Color(255, 255,  64,  72), // red
     Color(255,   0, 255, 255), // blue
     Color(255, 245, 247,  26)  // yellow
   };
-
+  
   private TextureID mTex[TEX_NUM];
   private int mPlayerName[MAXPLAYERS];
   private int mTextSrcWidth;
+  private float radar_alpha;
+  private transient CVar mRadarBlipColors[6];
   private transient CVar mScreenBlocks;
   private transient CVar mRadarAnchor;
   private transient CVar mRadarOrder;
+  private transient CVar mRadarShowType[6];
   private transient CVar mRadarAltitude;
   private transient CVar mRadarRespawn;
   private transient CVar mRadarScale;
+  private transient CVar mRadarAlpha;
   private transient CVar mRadarOffsetX;
   private transient CVar mRadarOffsetY;
   private ARadarAnm mAnmScanScale;
@@ -298,14 +294,27 @@ struct ARadarRenderer {
   private vector3 mBoxVertex[4];
 
   bool InitCVar() {
-    mScreenBlocks  = CVar.GetCVar('screenblocks');
-    mRadarAnchor   = CVar.GetCVar('aradar_anchor');
-    mRadarOrder    = CVar.GetCVar('aradar_order');
-    mRadarAltitude = CVar.GetCVar('aradar_altitude');
-    mRadarRespawn  = CVar.GetCVar('aradar_respawn');
-    mRadarOffsetX  = CVar.GetCVar('aradar_offset_x');
-    mRadarOffsetY  = CVar.GetCVar('aradar_offset_y');
-    mRadarScale    = CVar.GetCVar('aradar_scale');
+    mScreenBlocks        = CVar.GetCVar('screenblocks');
+    mRadarAnchor         = CVar.GetCVar('aradar_anchor');
+    mRadarOrder          = CVar.GetCVar('aradar_order');
+	mRadarShowType[0]    = CVar.GetCVar('aradar_blip_deco');
+	mRadarShowType[1]    = CVar.GetCVar('aradar_blip_other');
+	mRadarShowType[2]    = CVar.GetCVar('aradar_blip_key');
+	mRadarShowType[3]    = CVar.GetCVar('aradar_blip_friend');
+	mRadarShowType[4]    = CVar.GetCVar('aradar_blip_monster');
+	mRadarShowType[5]    = CVar.GetCVar('aradar_blip_count');
+	mRadarBlipColors[0]  = CVar.GetCVar('aradar_blip_deco_color');
+	mRadarBlipColors[1]  = CVar.GetCVar('aradar_blip_other_color');
+	mRadarBlipColors[2]  = CVar.GetCVar('aradar_blip_key_color');
+	mRadarBlipColors[3]  = CVar.GetCVar('aradar_blip_friend_color');
+	mRadarBlipColors[4]  = CVar.GetCVar('aradar_blip_monster_color');
+	mRadarBlipColors[5]  = CVar.GetCVar('aradar_blip_count_color');
+    mRadarAltitude       = CVar.GetCVar('aradar_altitude');
+    mRadarRespawn        = CVar.GetCVar('aradar_respawn');
+    mRadarOffsetX        = CVar.GetCVar('aradar_offset_x');
+    mRadarOffsetY        = CVar.GetCVar('aradar_offset_y');
+    mRadarScale          = CVar.GetCVar('aradar_scale');
+	mRadarAlpha          = CVar.GetCVar('aradar_alpha');
 
     for (uint i = 0; i < MAXPLAYERS; ++i) {
       mPlayerName[i] = -1;
@@ -357,6 +366,8 @@ struct ARadarRenderer {
       mAnmScanFade.addKeyLinear(1.5, 0.15);
       mAnmScanFade.addKeyLinear(2.0, 0.00);
     }
+	
+	radar_alpha = 1.0;
 
     return true;
   }
@@ -466,7 +477,13 @@ struct ARadarRenderer {
     if (mScreenBlocks != null && mScreenBlocks.GetInt() > 11) {
       return;
     }
+	
+	if (mRadarAlpha != null) {
+      radar_alpha = mRadarAlpha.GetFloat();
+    }
 
+
+	
     ARadarDrawData draw;
 
     draw.camera   = e.Camera;
@@ -561,18 +578,20 @@ struct ARadarRenderer {
   private ui void RenderRadar(
     in ARadarDrawData draw
   ) const {
+	
     Screen.DrawTexture(
       mTex[TEX_RADAR_BACK], false,
       draw.center.X, draw.center.Y,
 
       DTA_CenterOffset, true,
       DTA_DestHeightF,  draw.radar_size,
-      DTA_DestWidthF,   draw.radar_size
+      DTA_DestWidthF,   draw.radar_size,
+	  DTA_Alpha,        radar_alpha
     );
 
     double time = (draw.timer % 2.0);
     double scan_size = mAnmScanScale.eval(time);
-    double scan_fade = mAnmScanFade.eval(time);
+    double scan_fade = mAnmScanFade.eval(time) * radar_alpha;
 
     Screen.DrawTexture(
       mTex[TEX_RADAR_SCAN], false,
@@ -592,7 +611,8 @@ struct ARadarRenderer {
       DTA_ClipLeft,     int(draw.center.X),
       DTA_DestHeightF,  draw.radar_size,
       DTA_DestWidthF,   draw.radar_size,
-      DTA_Rotate,       -draw.fov
+      DTA_Rotate,       -draw.fov,
+	  DTA_Alpha,        radar_alpha
     );
 
     Screen.DrawTexture(
@@ -604,7 +624,8 @@ struct ARadarRenderer {
       DTA_DestHeightF,  draw.radar_size,
       DTA_DestWidthF,   draw.radar_size,
       DTA_FlipX,        true,
-      DTA_Rotate,       draw.fov
+      DTA_Rotate,       draw.fov,
+	  DTA_Alpha,        radar_alpha
     );
 
     Screen.DrawTexture(
@@ -613,7 +634,8 @@ struct ARadarRenderer {
 
       DTA_CenterOffset, true,
       DTA_DestHeightF,  draw.radar_size,
-      DTA_DestWidthF,   draw.radar_size
+      DTA_DestWidthF,   draw.radar_size,
+	  DTA_Alpha,        radar_alpha
     );
 
     Screen.DrawTexture(
@@ -622,7 +644,8 @@ struct ARadarRenderer {
 
       DTA_CenterOffset, true,
       DTA_DestHeightF,  draw.radar_size,
-      DTA_DestWidthF,   draw.radar_size
+      DTA_DestWidthF,   draw.radar_size,
+	  DTA_Alpha,        radar_alpha
     );
   }
 
@@ -630,13 +653,24 @@ struct ARadarRenderer {
     in ARadarDrawData draw,
     in ARadarData radar
   ) const {
-    bool hide_respawn = false;
+    bool  hide_respawn = false;
+	bool  draw_types[6];
 
     if (mRadarRespawn != null) {
       hide_respawn = mRadarRespawn.GetBool();
     }
+	
+	if (mRadarShowType.Size() > 0) {
+	  for (int i = 0; i < draw_types.Size(); i++) {
+		draw_types[i] = mRadarShowType[i].GetBool();
+	  }
+    }
 
     for (uint i = 0; i < radar.blips.Size(); ++i) {
+	  if (!radar.blips[i]) {
+        break;
+	  }
+	  
       if ((radar.blips[i].flags & ARADAR_BLIPF_VISIBLE) == 0) {
         continue;
       }
@@ -646,7 +680,11 @@ struct ARadarRenderer {
           continue;
         }
       }
-
+	  
+	  if (!draw_types[radar.blips[i].type]) {
+        continue;
+      }
+	  
       vector3 pos = draw.CalcRadarPos(
         draw.CalcWorldPos(radar.blips[i].mo)
       );
@@ -659,9 +697,8 @@ struct ARadarRenderer {
         blip_angle = -(VectorAngle(pos.X, pos.Y) + 90);
       }
 
-      ARadarBlipType blip_type = radar.blips[i].type;
-      Color blip_color         = BLIP_COLORS[blip_type];
-
+	  Color blip_color = Color(mRadarBlipColors[radar.blips[i].type].GetInt() | 0xFF000000);
+	  
       Screen.DrawTexture(
         mTex[blip_tex], false,
         (draw.center.X + pos.X),
@@ -671,7 +708,8 @@ struct ARadarRenderer {
         DTA_Color,        int(blip_color),
         DTA_DestHeightF,  draw.blip_size,
         DTA_DestWidthF,   draw.blip_size,
-        DTA_Rotate,       blip_angle
+        DTA_Rotate,       blip_angle,
+		DTA_Alpha,        radar_alpha
       );
 
       if (abs(pos.Z) > 1) {
@@ -680,7 +718,8 @@ struct ARadarRenderer {
           (draw.center.Y + pos.Y),
           (draw.center.X + pos.X + 1),
           (draw.center.Y + pos.Y - pos.Z),
-          blip_color
+          blip_color,
+		  int(radar_alpha * 255)
         );
       }
     }
@@ -714,7 +753,8 @@ struct ARadarRenderer {
         DTA_CenterOffset, true,
         DTA_Color,        int(color),
         DTA_DestHeightF,  draw.pip_size,
-        DTA_DestWidthF,   draw.pip_size
+        DTA_DestWidthF,   draw.pip_size,
+		DTA_Alpha,        radar_alpha
       );
 
       if (abs(pos.Z) > 1) {
@@ -723,7 +763,8 @@ struct ARadarRenderer {
           (draw.center.Y + pos.Y),
           (draw.center.X + pos.X + 1),
           (draw.center.Y + pos.Y - pos.Z),
-          color
+          color,
+		  int(radar_alpha * 255)
         );
       }
 
@@ -751,7 +792,8 @@ struct ARadarRenderer {
           DTA_DestHeightF,  draw.pip_size,
           DTA_DestWidthF,   draw.pip_size,
           DTA_SrcWidth,     double(mTextSrcWidth),
-          DTA_SrcX,         double(mTextSrcWidth * cell)
+          DTA_SrcX,         double(mTextSrcWidth * cell),
+		  DTA_Alpha,        radar_alpha
         );
       }
     }
@@ -777,7 +819,8 @@ struct ARadarRenderer {
       Screen.DrawLine(
         int(draw.center.X + line.a.X), int(draw.center.Y + line.a.Y),
         int(draw.center.X + line.b.X), int(draw.center.Y + line.b.Y),
-        0xFFFF0000
+        Color(255, 0, 0),
+		int(radar_alpha * 255)
       );
     }
   }
@@ -802,7 +845,8 @@ struct ARadarRenderer {
         DTA_CenterOffset, true,
         DTA_Color,        int(blot_color),
         DTA_DestHeightF,  draw.blot_size,
-        DTA_DestWidthF,   draw.blot_size
+        DTA_DestWidthF,   draw.blot_size,
+		DTA_Alpha,        radar_alpha
       );
     }
   }

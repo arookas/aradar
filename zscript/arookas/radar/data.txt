@@ -14,6 +14,7 @@ enum ARadarBlipType {
   ARADAR_BLIP_YELLOW,
   ARADAR_BLIP_BLUE,
   ARADAR_BLIP_RED,
+  ARADAR_BLIP_MAGENTA,
 
   ARADAR_NUM_BLIPS
 
@@ -56,8 +57,13 @@ class ARadarBlip {
         return ARADAR_BLIP_YELLOW;
       }
 
-      if ((mo is 'Inventory') || mo.bCOUNTITEM) {
-        return ARADAR_BLIP_GREEN;
+      if (mo is 'Inventory')
+	  {
+		if (mo.bCOUNTITEM) {
+		  return ARADAR_BLIP_MAGENTA;
+		} else {
+		  return ARADAR_BLIP_GREEN;
+		}
       }
 
       if (mo.bFRIENDLY) {
@@ -142,8 +148,12 @@ struct ARadarData {
     int notices = 0;
 
     for (uint i = 0; i < self.blips.Size(); ++i) {
+	  if (!self.blips[i]) {
+        break;
+	  }
       if ((self.blips[i].flags & ARADAR_BLIPF_VISIBLE) != 0) {
         switch (self.blips[i].type) {
+		  case ARADAR_BLIP_MAGENTA:
           case ARADAR_BLIP_GREEN:
           case ARADAR_BLIP_YELLOW: {
             break;
@@ -156,9 +166,12 @@ struct ARadarData {
 
       Actor mo = self.blips[i].mo;
 
-      if (mo == null) {
-        continue;
-      }
+      if (ARadarBlip.DeduceType(self.blips[i].mo) < 0) {
+		--self.counts[self.blips[i].type];
+	    self.blips.Delete(i);
+		--i;
+		continue;
+	  }
 
       switch (self.blips[i].type) {
         case ARADAR_BLIP_RED: {
@@ -170,6 +183,7 @@ struct ARadarData {
 
           break;
         }
+		case ARADAR_BLIP_MAGENTA:
         case ARADAR_BLIP_GREEN:
         case ARADAR_BLIP_YELLOW: {
           let item = Inventory(mo);
@@ -185,6 +199,15 @@ struct ARadarData {
               self.blips[i].flags |=  ARADAR_BLIPF_RESPAWNED;
               continue;
             }
+			
+			if (multiplayer && mo is 'Key') {
+              if (players[consoleplayer].mo.CountInv(mo.GetClassName()) > 0) {
+				if ((self.blips[i].flags & ARADAR_BLIPF_VISIBLE) == 1) {
+				  self.blips[i].flags &= ~ARADAR_BLIPF_VISIBLE;
+				}
+				continue;
+			  }
+			}
           }
 
           break;
@@ -239,15 +262,20 @@ struct ARadarData {
   }
 
   bool RemoveBlip(Actor mo) {
-    for (uint i = 0; i < self.blips.Size(); ++i) {
-      if (self.blips[i].mo != mo) {
-        continue;
-      }
+	if (ARadarBlip.DeduceType(mo) >= 0) {
+	  for (uint i = 0; i < self.blips.Size(); ++i) {
+	    if (!self.blips[i]) {
+	      return false;
+  	    }
+        if (self.blips[i].mo != mo) {
+	      continue;
+        }
 
-      --self.counts[self.blips[i].type];
-      self.blips.Delete(i);
+        --self.counts[self.blips[i].type];
+        self.blips.Delete(i);
 
-      return true;
+        return true;
+	  }
     }
 
     return false;

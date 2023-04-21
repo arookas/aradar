@@ -68,7 +68,7 @@ class ARadarManager : EventHandler {
     if (mDefunct) {
       return;
     }
-
+	
     mData.RemoveBlip(e.Thing);
   }
 
